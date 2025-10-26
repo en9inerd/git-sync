@@ -11,6 +11,7 @@ TMP_LIST="/tmp/github-repos.txt"
 if [ ! -f "$NETRC_FILE" ]; then
     echo "~/.netrc not found! Create it with your GitHub token:"
     echo "machine github.com login YOUR_GITHUB_USERNAME password YOUR_GITHUB_TOKEN"
+    echo "machine api.github.com login YOUR_GITHUB_USERNAME password YOUR_GITHUB_TOKEN"
     exit 1
 fi
 
@@ -30,9 +31,34 @@ fi
 echo "[INFO] Detected GitHub username: $GITHUB_USER"
 
 # Fetch personal repositories (skip forks from others)
+fetch_repos() {
+    local url=$1
+    local mode=${2:-user}
+    local page=1
+
+    while true; do
+        response=$(curl -s --netrc-file "$NETRC_FILE" "${url}?per_page=100&page=${page}")
+
+        # stop if not valid JSON or empty
+        if ! echo "$response" | jq empty >/dev/null 2>&1 || [ -z "$response" ]; then
+            break
+        fi
+
+        count=$(echo "$response" | jq 'length')
+        [ "$count" -eq 0 ] && break
+
+        if [ "$mode" = "user" ]; then
+            echo "$response" | jq -r ".[] | select(.owner.login==\"$GITHUB_USER\") | .clone_url"
+        else
+            echo "$response" | jq -r '.[] | .clone_url'
+        fi
+
+        ((page++))
+    done
+}
+
 echo "[INFO] Fetching personal repositories..."
-curl -s --netrc-file "$NETRC_FILE" "https://api.github.com/user/repos?per_page=1000" \
-| jq -r ".[] | select(.owner.login==\"$GITHUB_USER\") | .clone_url" >> "$TMP_LIST"
+fetch_repos "https://api.github.com/user/repos" >> "$TMP_LIST"
 
 # Fetch organizations
 echo "[INFO] Fetching organizations..."
@@ -41,8 +67,7 @@ ORGS=$(curl -s --netrc-file "$NETRC_FILE" "https://api.github.com/user/orgs?per_
 
 for org in $ORGS; do
     echo "[INFO] Fetching repos for org: $org"
-    curl -s --netrc-file "$NETRC_FILE" "https://api.github.com/orgs/$org/repos?per_page=1000" \
-    | jq -r '.[] | .clone_url' >> "$TMP_LIST"
+    fetch_repos "https://api.github.com/orgs/$org/repos" org >> "$TMP_LIST"
 done
 
 # Remove duplicates and empty lines
