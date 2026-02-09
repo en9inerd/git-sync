@@ -5,7 +5,8 @@ set -euo pipefail
 
 BASE_DIR="/home/git/repos"
 NETRC_FILE="/home/git/.netrc"
-TMP_LIST="/tmp/github-repos.txt"
+TMP_LIST=$(mktemp /tmp/github-repos.XXXXXX)
+trap 'rm -f "$TMP_LIST"' EXIT
 
 log() {
     local level="$1"; shift
@@ -29,7 +30,7 @@ cd "$BASE_DIR" || exit 1
 
 # Get GitHub username automatically from API
 GITHUB_USER=$(curl -s --netrc-file "$NETRC_FILE" https://api.github.com/user | jq -r '.login')
-if [ -z "$GITHUB_USER" ]; then
+if [ -z "$GITHUB_USER" ] || [ "$GITHUB_USER" = "null" ]; then
     log ERROR "Failed to get GitHub username from API"
     exit 1
 fi
@@ -44,8 +45,8 @@ fetch_repos() {
     while true; do
         response=$(curl -s --netrc-file "$NETRC_FILE" "${url}?per_page=100&page=${page}")
 
-        # stop if not valid JSON or empty
-        if ! echo "$response" | jq empty >/dev/null 2>&1 || [ -z "$response" ]; then
+        # stop if not a valid JSON array or empty
+        if ! echo "$response" | jq -e 'type == "array"' >/dev/null 2>&1 || [ -z "$response" ]; then
             break
         fi
 
@@ -75,23 +76,29 @@ for org in $ORGS; do
     fetch_repos "https://api.github.com/orgs/$org/repos" org >> "$TMP_LIST"
 done
 
-# Remove duplicates and empty lines
+# Remove duplicates
 sort -u "$TMP_LIST" -o "$TMP_LIST"
-sed -i '/^$/d' "$TMP_LIST"
 
 # Mirror repositories
 log INFO "Mirroring repositories..."
 while read -r repo; do
     [ -z "$repo" ] && continue
-    name=$(basename "$repo" .git)
-    log SYNC "$name"
 
-    if [ -d "$BASE_DIR/$name.git" ]; then
-        cd "$BASE_DIR/$name.git" || continue
+    # Extract owner and name from URL to namespace repos and avoid collisions
+    path="${repo#https://github.com/}"
+    owner="${path%%/*}"
+    name=$(basename "$repo" .git)
+
+    log SYNC "$owner/$name"
+
+    mkdir -p "$BASE_DIR/$owner"
+
+    if [ -d "$BASE_DIR/$owner/$name.git" ]; then
+        cd "$BASE_DIR/$owner/$name.git" || continue
         git remote set-url origin "$repo" >/dev/null 2>&1 || true
         git remote update --prune
     else
-        git clone --mirror "$repo" "$BASE_DIR/$name.git"
+        git clone --mirror "$repo" "$BASE_DIR/$owner/$name.git"
     fi
 done < "$TMP_LIST"
 

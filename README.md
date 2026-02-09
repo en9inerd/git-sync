@@ -1,6 +1,6 @@
-# GitHub Backup & Self-Hosted Git Server Scripts
+# GitHub Backup & Migration Scripts
 
-This repository contains two Bash scripts to back up GitHub repositories and host them on your own self-hosted Git server.
+Scripts to back up GitHub repositories to a self-hosted Git server and migrate them to Codeberg.
 
 ## Scripts
 
@@ -57,6 +57,47 @@ Convert mirrored repositories created by `github-sync.sh` into independent bare 
 
 ---
 
+### 3. `codeberg-migrate.sh`
+
+**Purpose:**  
+Migrate all GitHub repositories (personal and organization) to Codeberg using the Gitea migration API. Includes full migration of code, issues, pull requests, labels, milestones, releases, and wikis. Safe to re-run — repos that already exist on Codeberg are skipped.
+
+**Setup:**
+
+1. Create a GitHub token at https://github.com/settings/tokens (needs `repo` scope for private repos).
+2. Create a Codeberg token at https://codeberg.org/user/settings/applications.
+3. Provide tokens via **environment variables** or a **config file**:
+
+    **Option A — Environment variables:**
+    ```bash
+    export GITHUB_TOKEN="your_github_token"
+    export CODEBERG_TOKEN="your_codeberg_token"
+    ```
+
+    **Option B — Config file** (`~/.config/codeberg-migrate.conf`):
+    ```bash
+    GITHUB_TOKEN="your_github_token"
+    CODEBERG_TOKEN="your_codeberg_token"
+    ```
+
+4. If migrating org repos, ensure the matching organizations already exist on Codeberg.
+
+**Usage:**
+
+```bash
+chmod +x codeberg-migrate.sh
+./codeberg-migrate.sh
+```
+
+The script will:
+- Discover all your personal and organization repos on GitHub
+- Skip any repos that already exist on Codeberg
+- Migrate new repos with issues, PRs, labels, milestones, releases, and wikis
+- Preserve repo visibility (public stays public, private stays private)
+- Print a summary of migrated / skipped / failed repos
+
+---
+
 ## Notes
 
 - **Execution order:** Always run `github-sync.sh` first to populate the mirrored repos, then run `convert-to-bare.sh` to make them independent.
@@ -65,7 +106,7 @@ Convert mirrored repositories created by `github-sync.sh` into independent bare 
     ```bash
     git clone git@your-server:repo-name
     ```
-- **Dependencies:** Both scripts require `jq` and `curl` to fetch repository lists from GitHub.
+- **Dependencies:** All scripts require `jq`, `curl`, and `git`.
 
 ---
 

@@ -6,8 +6,9 @@ BASE_DIR="/home/git/repos"
 
 cd "$BASE_DIR" || { echo "Base dir $BASE_DIR does not exist"; exit 1; }
 
-# Iterate over all .git directories (mirrored repos)
-for repo in *.git; do
+# Iterate over all .git directories (mirrored repos), including owner subdirectories
+shopt -s nullglob
+for repo in */*.git *.git; do
     [ -d "$repo" ] || continue
     echo "[INFO] Processing $repo ..."
 
@@ -19,9 +20,12 @@ for repo in *.git; do
         echo "  - Removed mirror setting"
     fi
 
-    # Optional: fetch latest changes if mirror previously disabled fetching
-    git fetch --prune origin
-    echo "  - Fetched latest from origin"
+    # Fetch latest changes from origin
+    if git fetch --prune origin; then
+        echo "  - Fetched latest from origin"
+    else
+        echo "  - WARNING: Failed to fetch from origin (remote may no longer exist)"
+    fi
 
     cd "$BASE_DIR" || continue
 done
