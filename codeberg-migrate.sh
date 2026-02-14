@@ -100,16 +100,22 @@ fetch_github_repos() {
     done
 }
 
+SKIP_ORGS="${SKIP_ORGS:-false}"
+
 log INFO "Fetching personal GitHub repositories..."
 fetch_github_repos "$GITHUB_API/user/repos" user >> "$TMP_LIST"
 
-log INFO "Fetching GitHub organizations..."
-ORGS=$(github_api "$GITHUB_API/user/orgs?per_page=100" | jq -r '.[].login // empty')
+if [ "$SKIP_ORGS" = "true" ]; then
+    log INFO "Skipping organization repositories (SKIP_ORGS=true)."
+else
+    log INFO "Fetching GitHub organizations..."
+    ORGS=$(github_api "$GITHUB_API/user/orgs?per_page=100" | jq -r '.[].login // empty')
 
-for org in $ORGS; do
-    log INFO "Fetching repos for org: $org"
-    fetch_github_repos "$GITHUB_API/orgs/$org/repos" org >> "$TMP_LIST"
-done
+    for org in $ORGS; do
+        log INFO "Fetching repos for org: $org"
+        fetch_github_repos "$GITHUB_API/orgs/$org/repos" org >> "$TMP_LIST"
+    done
+fi
 
 sort -u "$TMP_LIST" -o "$TMP_LIST"
 
