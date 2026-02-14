@@ -96,6 +96,32 @@ The script will:
 - Preserve repo visibility (public stays public, private stays private)
 - Print a summary of migrated / skipped / failed repos
 
+
+---
+
+### 4. `codeberg-delete-all.sh`
+
+**Purpose:**  
+Delete **all** repositories owned by the authenticated Codeberg user. This is destructive and irreversible — use with caution!
+
+**Setup:**
+
+Uses the same `CODEBERG_TOKEN` as `codeberg-migrate.sh` (via environment variable or config file).
+
+**Usage:**
+
+```bash
+chmod +x codeberg-delete-all.sh
+./codeberg-delete-all.sh
+```
+
+The script will:
+- List all repos that will be deleted
+- Require you to type `delete all` to confirm
+- Delete each repo via the Codeberg API
+
+To skip the confirmation prompt (e.g. in a script): `FORCE=true ./codeberg-delete-all.sh`
+
 ---
 
 ## Notes
