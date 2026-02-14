@@ -160,16 +160,16 @@ while IFS=$'\t' read -r full_name clone_url is_private; do
     log MIGRATE "[$current/$TOTAL] $full_name -> $codeberg_owner/$name"
 
     # Call Codeberg migration API
-    response=$(curl -s -w "\n%{http_code}" \
-        -H "Authorization: token $CODEBERG_TOKEN" \
-        -H "Content-Type: application/json" \
-        -X POST "$CODEBERG_API/repos/migrate" \
-        -d "$(jq -n \
+    # Try full migration first, then fall back to code-only on 500
+    migrate_success=false
+    for mode in full code_only; do
+        payload=$(jq -n \
             --arg clone_addr "$clone_url" \
             --arg auth_token "$GITHUB_TOKEN" \
             --arg repo_name "$name" \
             --arg repo_owner "$codeberg_owner" \
             --argjson private "$is_private" \
+            --argjson full "$([ "$mode" = "full" ] && echo true || echo false)" \
             '{
                 clone_addr: $clone_addr,
                 auth_token: $auth_token,
@@ -178,23 +178,46 @@ while IFS=$'\t' read -r full_name clone_url is_private; do
                 service: "github",
                 mirror: false,
                 private: $private,
-                issues: true,
-                labels: true,
-                milestones: true,
-                pull_requests: true,
-                releases: true,
-                wiki: true
-            }'
-        )")
+                issues: $full,
+                labels: $full,
+                milestones: $full,
+                pull_requests: $full,
+                releases: $full,
+                wiki: $full
+            }')
 
-    http_code="${response##*$'\n'}"
-    body="${response%$'\n'*}"
+        tmp_body=$(mktemp)
+        http_code=$(curl -s -o "$tmp_body" -w "%{http_code}" \
+            -H "Authorization: token $CODEBERG_TOKEN" \
+            -H "Content-Type: application/json" \
+            -X POST "$CODEBERG_API/repos/migrate" \
+            -d "$payload") || true
 
-    if [ "$http_code" = "201" ]; then
-        log OK "$codeberg_owner/$name migrated successfully"
-        migrated=$((migrated + 1))
-    else
-        error_msg=$(echo "$body" | jq -r '.message // "unknown error"' 2>/dev/null || echo "unknown error")
+        if [ "$http_code" = "201" ]; then
+            if [ "$mode" = "full" ]; then
+                log OK "$codeberg_owner/$name migrated successfully"
+            else
+                log OK "$codeberg_owner/$name migrated (code only — issues/PRs/wiki skipped)"
+            fi
+            migrated=$((migrated + 1))
+            migrate_success=true
+            rm -f "$tmp_body"
+            break
+        fi
+
+        error_msg=$(jq -r '.message // "unknown error"' < "$tmp_body" 2>/dev/null || echo "unknown error")
+        rm -f "$tmp_body"
+
+        if [ "$mode" = "full" ] && [ "$http_code" = "500" ]; then
+            log WARN "$codeberg_owner/$name full migration failed (HTTP 500), retrying code-only..."
+            curl -s -X DELETE \
+                -H "Authorization: token $CODEBERG_TOKEN" \
+                "$CODEBERG_API/repos/$codeberg_owner/$name" >/dev/null 2>&1 || true
+            sleep 3
+        fi
+    done
+
+    if [ "$migrate_success" = false ]; then
         log ERROR "$codeberg_owner/$name failed: $error_msg (HTTP $http_code)"
         failed=$((failed + 1))
     fi
