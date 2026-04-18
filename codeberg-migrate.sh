@@ -197,7 +197,7 @@ while IFS=$'\t' read -r full_name clone_url is_private; do
             if [ "$mode" = "full" ]; then
                 log OK "$codeberg_owner/$name migrated successfully"
             else
-                log OK "$codeberg_owner/$name migrated (code only — issues/PRs/wiki skipped)"
+                log OK "$codeberg_owner/$name migrated (code only - issues/PRs/wiki skipped)"
             fi
             migrated=$((migrated + 1))
             migrate_success=true

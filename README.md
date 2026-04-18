@@ -60,7 +60,7 @@ Convert mirrored repositories created by `github-sync.sh` into independent bare 
 ### 3. `codeberg-migrate.sh`
 
 **Purpose:**  
-Migrate all GitHub repositories (personal and organization) to Codeberg using the Gitea migration API. Includes full migration of code, issues, pull requests, labels, milestones, releases, and wikis. Safe to re-run — repos that already exist on Codeberg are skipped.
+Migrate all GitHub repositories (personal and organization) to Codeberg using the Gitea migration API. Includes full migration of code, issues, pull requests, labels, milestones, releases, and wikis. Safe to re-run - repos that already exist on Codeberg are skipped.
 
 **Setup:**
 
@@ -68,13 +68,13 @@ Migrate all GitHub repositories (personal and organization) to Codeberg using th
 2. Create a Codeberg token at https://codeberg.org/user/settings/applications.
 3. Provide tokens via **environment variables** or a **config file**:
 
-    **Option A — Environment variables:**
+    **Option A - Environment variables:**
     ```bash
     export GITHUB_TOKEN="your_github_token"
     export CODEBERG_TOKEN="your_codeberg_token"
     ```
 
-    **Option B — Config file** (`~/.config/codeberg-migrate.conf`):
+    **Option B - Config file** (`~/.config/codeberg-migrate.conf`):
     ```bash
     GITHUB_TOKEN="your_github_token"
     CODEBERG_TOKEN="your_codeberg_token"
@@ -102,7 +102,7 @@ The script will:
 ### 4. `codeberg-delete-all.sh`
 
 **Purpose:**  
-Delete **all** repositories owned by the authenticated Codeberg user. This is destructive and irreversible — use with caution!
+Delete **all** repositories owned by the authenticated Codeberg user. This is destructive and irreversible - use with caution!
 
 **Setup:**
 
